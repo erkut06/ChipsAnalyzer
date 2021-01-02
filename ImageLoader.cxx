@@ -42,7 +42,7 @@ std::vector<std::string> GetAllFileNamesFromDirectory(std::string folder)
 	{
 		struct dirent* hFile;
 		errno = 0;
-		while ((hFile = readdir(dirFile)) != NULL)
+		while ((hFile = readdir(dirFile)) != nullptr)
 		{
 			if (!strcmp(hFile->d_name, ".")) continue;
 			if (!strcmp(hFile->d_name, "..")) continue;
@@ -64,9 +64,10 @@ ImageLoader::ImageLoader()
 ImageLoader::~ImageLoader()
 {
 	folderName.clear();
-	if (data != NULL)
+	if (data != nullptr)
 	{
 		data->Delete();
+		data = nullptr;
 	}
 }
 
@@ -102,10 +103,10 @@ void ImageLoader::Read()
 	size_t numberOfBytes = dims[0] * dims[1] * numberOfScalarComponents * scalarSize;
 	numberOfBytes *= fileList.size();
 
-	if (data != NULL)
+	if (data != nullptr)
 	{
 		data->Delete();
-		data = NULL;
+		data = nullptr;
 	}
 	data = vtkImageData::New();
 	data->SetDimensions(dims[0], dims[1], static_cast<int>(fileList.size()));

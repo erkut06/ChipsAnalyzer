@@ -12,6 +12,6 @@ public:
 	vtkImageData* GetOutput();
 private:
 	std::string folderName;
-	vtkImageData* data = NULL;
+	vtkImageData* data = nullptr;
 };
 
