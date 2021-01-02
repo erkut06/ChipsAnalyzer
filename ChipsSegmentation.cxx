@@ -31,14 +31,13 @@
 #include "vtkTIFFWriter.h"
 //#define WRITE_CHIPS_MASK_AS_MHD
 
-typedef   unsigned short         InternalPixelType;
-typedef itk::Image< InternalPixelType, 3 >  InternalImageType;
-typedef unsigned short                         OutputPixelType;
-typedef itk::Image< OutputPixelType, 3 > OutputImageType;
-typedef itk::CastImageFilter< InternalImageType, OutputImageType >
+typedef unsigned short InternalPixelType;
+typedef itk::Image<InternalPixelType, 3> InternalImageType;
+typedef unsigned short OutputPixelType;
+typedef itk::Image<OutputPixelType, 3> OutputImageType;
+typedef itk::CastImageFilter<InternalImageType, OutputImageType>
 CastingFilterType;
-typedef itk::ConnectedThresholdImageFilter< InternalImageType,
-	InternalImageType > ConnectedFilterType;
+typedef itk::ConnectedThresholdImageFilter<InternalImageType,InternalImageType> ConnectedFilterType;
 
 ChipsSegmentation::ChipsSegmentation()
 {
@@ -47,6 +46,7 @@ ChipsSegmentation::ChipsSegmentation()
 
 ChipsSegmentation::~ChipsSegmentation()
 {
+	//delete vtkObjects
 	chipsMask->Delete();
 	connectedMask->Delete();
 }
@@ -54,13 +54,12 @@ ChipsSegmentation::~ChipsSegmentation()
 void ChipsSegmentation::ExtractSliceSurface(int sliceNum, double maxRadius, unsigned short forbiddenFruit)
 {
 	int* dims = chipsMask->GetDimensions();
-	BoundaryModel2D* model = new BoundaryModel2D();
+	std::unique_ptr<BoundaryModel2D> model(new BoundaryModel2D());
 	model->SetCenter(static_cast<double>(dims[0] / 2), static_cast<double>(dims[1] / 2));
 	model->AllocatePoints(5, maxRadius);
 	size_t sliceOffSet = static_cast<size_t>(sliceNum) * static_cast<size_t>(dims[0]) * static_cast<size_t>(dims[1]);
 	unsigned short* dPtr = &((unsigned short*)chipsMask->GetScalarPointer())[sliceOffSet];
 	model->FitBoundary(dPtr, dims, forbiddenFruit);
-	delete model;
 }
 
 void ChipsSegmentation::ExtractSurface()
@@ -232,9 +231,10 @@ void ChipsSegmentation::CalculateChipsMask()
 {
 
 	int* dims = inputData->GetDimensions();
-	if (chipsMask != NULL)
+	if (chipsMask != nullptr)
 	{
 		chipsMask->Delete();
+		chipsMask = nullptr;
 	}
 	
 	chipsMask = vtkImageData::New();
@@ -269,11 +269,6 @@ void ChipsSegmentation::CalculateChipsMask()
 void WriteToJpeg(const char* path, vtkImageData* image)
 {
 	vtkJPEGWriter* writer = vtkJPEGWriter::New();
-	//vtkSmartPointer<vtkImageFlip> flipYFilter =
-	//	vtkSmartPointer<vtkImageFlip>::New();
-	//flipYFilter->SetFilteredAxis(1); // flip y axis
-	//flipYFilter->SetInputData(image);
-	//flipYFilter->Update();
 	writer->SetInputData(image);
 	writer->SetFileName(path);
 	writer->Update();

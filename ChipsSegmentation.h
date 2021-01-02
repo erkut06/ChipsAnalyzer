@@ -28,9 +28,9 @@ private:
 	void CalculateChipsMask();
 	void FillChipsMask();
 	void CalculateInitialPorosity();
-	vtkImageData* inputData = NULL;
-	vtkImageData* chipsMask = NULL;
-	vtkImageData* connectedMask = NULL;
+	vtkImageData* inputData = nullptr;
+	vtkImageData* chipsMask = nullptr;
+	vtkImageData* connectedMask = nullptr;
 	unsigned char airMin = 0;
 	unsigned char airMax = 1;
 	unsigned char chipsMin = 0;
