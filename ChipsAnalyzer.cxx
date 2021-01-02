@@ -103,20 +103,7 @@ void ChipsAnalyzer::PreProcessData(vtkImageData* data)
 
 	int maxIndex = 0;
 	vtkIdType maxHis = std::numeric_limits<long long>::min();
-	/*std::cout << "Histogram : \n";
-
-	for (int i = 0; i < size; i++)
-	{
-		std::cout << hisPtr[i] << " %" << (static_cast<double>(hisPtr[i]) / dataSize) * 100 << std::endl;
-		if (maxHis < hisPtr[i])
-		{
-			maxHis = hisPtr[i];
-			maxIndex = i;
-		}
-	}
-
-	std::cout << "Max histogram intensity is " << maxIndex << std::endl;*/
-
+	
 	for (int i = maxIndex + 1; i < size - 1; i++)
 	{
 		double current = static_cast<double>(hisPtr[i]);
@@ -199,9 +186,7 @@ ChipsAnalyzer::ChipsAnalyzer()
 	connect(ui->ChipsOpacitySpinBox, SIGNAL(valueChanged(double)), this, SLOT(on_chipsopacity_spinbox_changed(double)));
 	connect(ui->renderQualitySpinBox, SIGNAL(valueChanged(int)), this, SLOT(on_renderquality_spinbox_changed(int)));
 	connect(ui->FolderSelector, SIGNAL(pressed()), this, SLOT(on_folder_selection()));
-	// Set up action signals and slots
 	connect(this->ui->actionExit, SIGNAL(triggered()), this, SLOT(slotExit()));
-
 }
 
 void ChipsAnalyzer::CalculateTransferFunction()
@@ -257,6 +242,7 @@ void ChipsAnalyzer::CalculateTransferFunction()
 
 void ChipsAnalyzer::slotExit()
 {
+	//delete vtkObjects
 	stats->Delete();
 	reader->Delete();
 	renderer->Delete();
@@ -264,8 +250,8 @@ void ChipsAnalyzer::slotExit()
 	mapper->Delete();
 	colorFunction->Delete();
 	opacityFunction->Delete();
-	ChipsData->Delete();
-	SegmentationMask->Delete();
+	chipsData->Delete();
+	segmentationMask->Delete();
 	qApp->exit();
 }
 
@@ -274,7 +260,7 @@ void ChipsAnalyzer::CalculateCurrentPorosity()
 	vtkIdTypeArray* his = stats->GetHistogram();
 	vtkIdType size = his->GetSize();
 	vtkIdType* hisPtr = his->GetPointer(0);
-	int* dims = ChipsData->GetDimensions();
+	int* dims = chipsData->GetDimensions();
 	double dataSize = dims[0] * dims[1] * dims[2];
 
 	int min = ui->minSpinBox->value();
@@ -372,10 +358,10 @@ int GetNumberOfDigits(int num)
 
 void ChipsAnalyzer::WriteChipsAsBinaryImage()
 {
-	int* dims = ChipsData->GetDimensions();
+	int* dims = chipsData->GetDimensions();
 	unsigned char* ChipsMask = new unsigned char[dims[0] * dims[1] * dims[2]];
 	unsigned char* cm = ChipsMask;
-	unsigned char* cptr = (unsigned char*)ChipsData->GetScalarPointer();
+	unsigned char* cptr = (unsigned char*)chipsData->GetScalarPointer();
 	size_t totalSize = static_cast<size_t>(dims[0]) * static_cast<size_t>(dims[1]) * static_cast<size_t>(dims[2]);
 	memset(ChipsMask, 0, totalSize);
 	for (size_t i = 0; i < totalSize; i++)
@@ -451,10 +437,10 @@ void ChipsAnalyzer::on_folder_selection()
 	}
 	size_t fIndex = folderName.find_last_of("/\\");
 	currentFolderName = folderName.substr(fIndex + 1);
-	std::chrono::high_resolution_clock::time_point start = std::chrono::high_resolution_clock::now();
+	auto start = std::chrono::high_resolution_clock::now();
 
 	std::cout << "Reading chips data started" << std::endl;
-	ImageLoader* loader = new ImageLoader();
+	std::shared_ptr<ImageLoader> loader(new ImageLoader());
 	loader->SetFolderName(folderName);
 	loader->Read();
 	std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
@@ -479,22 +465,21 @@ void ChipsAnalyzer::on_folder_selection()
 	end = std::chrono::high_resolution_clock::now();
 	duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 	std::cout << "Volume resampling finished in " << duration << " ms" << std::endl;
-	if (ChipsData != NULL)
+	if (chipsData != nullptr)
 	{
-		ChipsData->Delete();
-		ChipsData = NULL;
+		chipsData->Delete();
+		chipsData = nullptr;
 	}
-	ChipsData = vtkImageData::New();
+	chipsData = vtkImageData::New();
 	if (reductionFactor < 0.99)
 	{
-		ChipsData->ShallowCopy(resample->GetOutput());
+		chipsData->ShallowCopy(resample->GetOutput());
 	}
 	else
-		ChipsData->ShallowCopy(loader->GetOutput());
+		chipsData->ShallowCopy(loader->GetOutput());
 
-	delete loader;
 	resample->Delete();
-	PreProcessData(ChipsData);
+	PreProcessData(chipsData);
 
 	if (ui->writeChipsMask->checkState() == Qt::Checked)
 	{
@@ -508,12 +493,12 @@ void ChipsAnalyzer::on_folder_selection()
 
 	int neighbourHood = ui->neighbourHood->currentIndex();
 
-	Segmentation = new ChipsSegmentation();
-	Segmentation->SetAirIntensities(airIntensities[0], airIntensities[1]);
-	Segmentation->SetChipsIntensities(chipsIntensities[0], chipsIntensities[1]);
-	Segmentation->SetInputData(ChipsData);
-	Segmentation->SetNeighbourHood(neighbourHood);
-	Segmentation->ExtractSurface();
+	segmentation = std::shared_ptr<ChipsSegmentation>(new ChipsSegmentation());
+	segmentation->SetAirIntensities(airIntensities[0], airIntensities[1]);
+	segmentation->SetChipsIntensities(chipsIntensities[0], chipsIntensities[1]);
+	segmentation->SetInputData(chipsData);
+	segmentation->SetNeighbourHood(neighbourHood);
+	segmentation->ExtractSurface();
 
 	end = std::chrono::high_resolution_clock::now();
 	duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -522,30 +507,23 @@ void ChipsAnalyzer::on_folder_selection()
 	start = std::chrono::high_resolution_clock::now();
 	std::cout << "Connectivity Index calculation started" << std::endl;
 
-	Segmentation->LabelAndAnalyze();
+	segmentation->LabelAndAnalyze();
 
 	end = std::chrono::high_resolution_clock::now();
 	duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 	std::cout << "Connectivity Index calculation finished in " << duration << " ms" << std::endl;
 
-	/*if (SegmentationMask == NULL)
-	{
-		SegmentationMask = vtkImageData::New();
-	}
-
-	this->SegmentationMask->DeepCopy(Segmentation->GetMask());*/
-
-	QString instantString = "%" + QString::number(Segmentation->GetInitialPorosity(), 'g', 8);
+	QString instantString = "%" + QString::number(segmentation->GetInitialPorosity(), 'g', 8);
 	this->ui->segmentedPorosity->setText(instantString);
 
-	instantString = QString::number(Segmentation->GetConnectivityIndex(), 'g', 8);
+	instantString = QString::number(segmentation->GetConnectivityIndex(), 'g', 8);
 	this->ui->connectivityIndex->setText(instantString);
 
 	if (ui->writeChipsBoundaryMask->checkState() == Qt::Checked)
 	{
 		start = std::chrono::high_resolution_clock::now();
 		std::cout << "WriteChipsBoundary started" << std::endl;
-		Segmentation->WriteChipsBoundary(currentFolderName);
+		segmentation->WriteChipsBoundary(currentFolderName);
 		end = std::chrono::high_resolution_clock::now();
 		duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 		std::cout << "WriteChipsBoundary finished in " << duration << " ms" << std::endl;
@@ -555,56 +533,53 @@ void ChipsAnalyzer::on_folder_selection()
 	{
 		start = std::chrono::high_resolution_clock::now();
 		std::cout << "WriteConnectedComponents started" << std::endl;
-		Segmentation->WriteConnectedComponents(currentFolderName);
+		segmentation->WriteConnectedComponents(currentFolderName);
 		end = std::chrono::high_resolution_clock::now();
 		duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 		std::cout << "WriteConnectedComponents finished in " << duration << " ms" << std::endl;
 	}
 
-	//delete Segmentation;
-
-	if (renderer != NULL)
+	if (renderer != nullptr)
 	{
 		renderer->Delete();
-		renderer = NULL;
+		renderer = nullptr;
 	}
 
-	if (volume != NULL)
+	if (volume != nullptr)
 	{
 		volume->Delete();
-		volume = NULL;
+		volume = nullptr;
 	}
 
-	if (mapper != NULL)
+	if (mapper != nullptr)
 	{
 		mapper->Delete();
-		mapper = NULL;
+		mapper = nullptr;
 	}
 
-	if (colorFunction != NULL)
+	if (colorFunction != nullptr)
 	{
 		colorFunction->Delete();
-		colorFunction = NULL;
+		colorFunction = nullptr;
 	}
 
-	if (opacityFunction != NULL)
+	if (opacityFunction != nullptr)
 	{
 		opacityFunction->Delete();
-		opacityFunction = NULL;
+		opacityFunction = nullptr;
 	}
 
-	if (property != NULL)
+	if (property != nullptr)
 	{
 		property->Delete();
-		property = NULL;
+		property = nullptr;
 	}
-
 	renderer = vtkRenderer::New();
 
 	volume = vtkVolume::New();
 	mapper = vtkOpenGLGPUVolumeRayCastMapper::New();
 	mapper->SetMaxMemoryFraction(0.95);
-	mapper->SetInputData(ChipsData);
+	mapper->SetInputData(chipsData);
 
 	colorFunction = vtkColorTransferFunction::New();
 	opacityFunction = vtkPiecewiseFunction::New();
@@ -617,35 +592,15 @@ void ChipsAnalyzer::on_folder_selection()
 	property->ShadeOn();
 	property->SetDiffuse(1.0);
 	property->SetAmbient(0.15);
-	//property->SetSpecular(0.005);
-	//property->SetSpecularPower(10);
 	volume->SetProperty(property);
 	volume->SetMapper(mapper);
 
 	CalculateTransferFunction();
 
-	/*colorFunction->AddRGBPoint(0, 0.0, 0.0, 0.0);
-	colorFunction->AddRGBPoint(2, 0.0, 0.0, 0.0);
-	colorFunction->AddRGBPoint(3, 0.0, 0.2, 0.3);
-	colorFunction->AddRGBPoint(30, 0.0, 0.2, 0.3);
-	colorFunction->AddRGBPoint(80, 0.9, 0.8, 0.5);
-	colorFunction->AddRGBPoint(255, 0.9, 0.8, 0.5);*/
-	/*colorFunction->AddRGBPoint(255, 0.9, 0.02, 0.05);*/
-
-	/*opacityFunction->AddPoint(0, 0.00);
-	opacityFunction->AddPoint(30, 0.0);
-	opacityFunction->AddPoint(31, 0.1);
-	opacityFunction->AddPoint(79, 0.1);
-	opacityFunction->AddPoint(80, 0.10);
-	opacityFunction->AddPoint(255, 0.1);*/
-
 	mapper->SetBlendModeToComposite();
 	mapper->AutoAdjustSampleDistancesOff();
 	mapper->SetSampleDistance(sampleDistance);
 
-	//mapper->AutoAdjustSampleDistancesOn();
-	/*mapper->SetSampleDistance(0.1);
-	mapper->SetImageSampleDistance(1);*/
 	renderer->AddVolume(volume);
 
 	renderer->ResetCamera();

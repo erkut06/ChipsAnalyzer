@@ -3,6 +3,8 @@
 #include <vtkSmartPointer.h>
 #include <QMainWindow>
 
+#include <memory>
+
 class Ui_ChipsAnalyzer;
 class vtkRenderer;
 class vtkColorTransferFunction;
@@ -36,17 +38,17 @@ private slots:
 	void on_folder_selection();
 private:
 
-	vtkMetaImageReader* reader = NULL;
-	vtkVolume* volume = NULL;
-	vtkRenderer* renderer = NULL;
-	vtkOpenGLGPUVolumeRayCastMapper* mapper = NULL;
-	vtkColorTransferFunction* colorFunction = NULL;
-	vtkPiecewiseFunction* opacityFunction = NULL;
-	vtkVolumeProperty* property = NULL;
-	vtkImageData* ChipsData = NULL;
-	vtkImageHistogramStatistics* stats = NULL;
-	vtkImageData* SegmentationMask = NULL;
-	ChipsSegmentation* Segmentation = NULL;
+	vtkMetaImageReader* reader = nullptr;
+	vtkVolume* volume = nullptr;
+	vtkRenderer* renderer = nullptr;
+	vtkOpenGLGPUVolumeRayCastMapper* mapper = nullptr;
+	vtkColorTransferFunction* colorFunction = nullptr;
+	vtkPiecewiseFunction* opacityFunction = nullptr;
+	vtkVolumeProperty* property = nullptr;
+	vtkImageData* chipsData = nullptr;
+	vtkImageHistogramStatistics* stats = nullptr;
+	vtkImageData* segmentationMask = nullptr;
+	std::shared_ptr<ChipsSegmentation> segmentation = nullptr;
 	double airIntensities[2];
 	double chipsIntensities[2];
 	std::string currentFolderName = "";

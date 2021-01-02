@@ -201,7 +201,7 @@ void BoundaryModel2D::CheckBoundary(unsigned short* dPtr, int* dims, unsigned sh
 		auto& currentPoint = points[i];
 		auto& nextPoint = points[(i + 1) % pointSize];
 
-		std::shared_ptr<BoundaryPoint2D> previousPoint = NULL;
+		std::shared_ptr<BoundaryPoint2D> previousPoint = nullptr;
 		if (i != 0)
 		{
 			previousPoint = points[i - 1];
