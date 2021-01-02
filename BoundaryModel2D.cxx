@@ -13,35 +13,23 @@ BoundaryModel2D::BoundaryModel2D()
 
 BoundaryModel2D::~BoundaryModel2D()
 {
-
+	points.clear();
 }
 
 void BoundaryModel2D::SetCenter(double cx, double cy)
 {
 	center.x = cx;
 	center.y = cy;
-
-	//actions when center changed...
 }
 
 void BoundaryModel2D::ClearPointsIfAllocated()
 {
-	if (points != NULL)
-	{
-		for (int i = 0; i < pointSize; i++)
-		{
-			if (points[i] != NULL)
-			{
-				delete points[i];
-			}
-		}
-		delete[] points;
-	}
+	points.clear();
 }
 
 bool IsMarchingDone(unsigned char* PointMap, int size)
 {
-	for (int i = 0; i < size ; i++)
+	for (auto i = 0; i < size ; i++)
 	{
 		if (PointMap[i] == 0)
 		{
@@ -53,8 +41,8 @@ bool IsMarchingDone(unsigned char* PointMap, int size)
 
 void BoundaryModel2D::MarchAll(unsigned short* dPtr, int* dims, unsigned short& forbiddentFruit)
 {
-	int maxIteration = sqrt(dims[0] * dims[0] + dims[1] * dims[1]) * 10;
-	unsigned char* pointMap = new unsigned char[pointSize];
+	auto maxIteration = sqrt(dims[0] * dims[0] + dims[1] * dims[1]) * 10;
+	auto pointMap = new unsigned char[pointSize];
 	memset(pointMap, 0, pointSize);
 	unsigned char* tempPointMap = new unsigned char[pointSize];
 	memset(tempPointMap, 0, pointSize);
@@ -67,7 +55,7 @@ void BoundaryModel2D::MarchAll(unsigned short* dPtr, int* dims, unsigned short& 
 		{
 			if (pointMap[i] == 0)
 			{
-				BoundaryPoint2D* current = points[i];
+				auto& current = points[i];
 				current->DecrementRadius();
 			}
 		}
@@ -78,7 +66,7 @@ void BoundaryModel2D::MarchAll(unsigned short* dPtr, int* dims, unsigned short& 
 		{
 			if (tempPointMap[i] != pointMap[i] )
 			{
-				BoundaryPoint2D* current = points[i];
+				auto& current = points[i];
 				current->IncrementRadius();
 				current->fixed = true;
 			}
@@ -88,23 +76,16 @@ void BoundaryModel2D::MarchAll(unsigned short* dPtr, int* dims, unsigned short& 
 		{
 			break;
 		}
-		//change center
 	}
 
-	for (int i = 0; i < pointSize; i++)
+	int incrementCount = 5;
+	for (auto& current: points)
 	{
-		BoundaryPoint2D* current = points[i];
 		current->fixed = false;
-		current->IncrementRadius();
-		current->IncrementRadius();
-		current->IncrementRadius();
-		current->IncrementRadius();
-		current->IncrementRadius();
-		/*current->IncrementRadius();
-		current->IncrementRadius();
-		current->IncrementRadius();
-		current->IncrementRadius();
-		current->IncrementRadius();*/
+		for (int inc = 0; inc < incrementCount; inc++)
+		{
+			current->IncrementRadius();
+		}
 	}
 }
 
@@ -116,8 +97,8 @@ void BoundaryModel2D::FitBoundary(unsigned short* dPtr, int* dims, unsigned shor
 	int currentIndex = 0;
 	for (int i = 0; i < pointSize; i++)
 	{
-		BoundaryPoint2D* currentPoint = points[i];
-		BoundaryPoint2D* nextPoint = points[(i + 1) % pointSize];
+		auto& currentPoint = points[i];
+		auto& nextPoint = points[(i + 1) % pointSize];
 
 		Vector3 way(nextPoint->x - currentPoint->x, nextPoint->y - currentPoint->y, 0);
 		double length = static_cast<double>(way.Length());
@@ -134,9 +115,7 @@ void BoundaryModel2D::FitBoundary(unsigned short* dPtr, int* dims, unsigned shor
 			{
 				dPtr[currentIndex] = changeValue;
 			}
-			
 		}
-
 	}
 
 	unsigned short borderValue = forbiddenFruit / 2;
@@ -219,10 +198,10 @@ void BoundaryModel2D::CheckBoundary(unsigned short* dPtr, int* dims, unsigned sh
 
 	for (int i = 0; i < pointSize; i++)
 	{
-		BoundaryPoint2D* currentPoint = points[i];
-		BoundaryPoint2D* nextPoint = points[(i + 1) % pointSize];
+		auto& currentPoint = points[i];
+		auto& nextPoint = points[(i + 1) % pointSize];
 
-		BoundaryPoint2D* previousPoint = NULL;
+		std::shared_ptr<BoundaryPoint2D> previousPoint = NULL;
 		if (i != 0)
 		{
 			previousPoint = points[i - 1];
@@ -302,7 +281,6 @@ void BoundaryModel2D::AllocatePoints(int depth, double radius)
 	pointSize = std::pow(2, depth);
 #endif
 
-	points = new BoundaryPoint2D*[pointSize];
 	double pi = 22.0 / 7.0;
 	double increment = (2 * pi) / static_cast<double>(pointSize);
 	int pointIndex = 0;
@@ -312,10 +290,11 @@ void BoundaryModel2D::AllocatePoints(int depth, double radius)
 		{
 			break;
 		}
-		points[pointIndex] = new BoundaryPoint2D();
-		points[pointIndex]->SetAngle(teta);
-		points[pointIndex]->SetRadius(radius);
-		points[pointIndex]->UpdatePoint(center.x, center.y);
+		auto newBoundaryPoint = std::shared_ptr<BoundaryPoint2D>(new BoundaryPoint2D());
+		points.push_back(newBoundaryPoint);
+		newBoundaryPoint->SetAngle(teta);
+		newBoundaryPoint->SetRadius(radius);
+		newBoundaryPoint->UpdatePoint(center.x, center.y);
 		pointIndex++;
 	}
 }

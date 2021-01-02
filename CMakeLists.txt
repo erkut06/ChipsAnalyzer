@@ -6,7 +6,8 @@ if(POLICY CMP0020)
 endif()
 
 PROJECT(ChipsAnalyzer)
-
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(VTK REQUIRED)
 include(${VTK_USE_FILE})
 
